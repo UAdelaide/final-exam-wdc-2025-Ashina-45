@@ -6,6 +6,14 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+const session = require('express-session');
+app.use(session({
+  secret: 'your_secret_key', // Use a secure key in production!
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // set to true if using https
+}));
+
 app.use(express.static(path.join(__dirname, '/public')));
 
 // Routes

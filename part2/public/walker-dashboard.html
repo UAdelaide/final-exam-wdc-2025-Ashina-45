@@ -9,6 +9,7 @@
 </head>
 <body class="bg-light">
   <div id="app" class="container py-4">
+    <button type="button" @click="logout" class="btn btn-danger float-end">Logout</button>
     <h1 class="mb-4 text-success">Walker Dashboard</h1>
 
     <!-- Alert messages -->
@@ -73,6 +74,11 @@
             message.value = '';
           }
         }
+        async function logout() {
+  await fetch('/api/users/logout', { method: 'POST' });
+  window.location.href = 'index.html'; // return to login form
+}
+
 
         onMounted(() => {
           loadWalkRequests();
@@ -82,7 +88,8 @@
           walks,
           message,
           error,
-          applyToWalk
+          applyToWalk,
+          logout
         };
       }
     }).mount('#app');

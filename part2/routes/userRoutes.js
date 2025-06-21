@@ -49,10 +49,21 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    req.session.user = rows[0]; // Store user in session
     res.json({ message: 'Login successful', user: rows[0] });
+
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
   }
 });
+
+// POST logout (destroys session)
+router.post('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid'); // clear the session cookie (name may vary)
+    res.json({ message: 'Logged out' });
+  });
+});
+
 
 module.exports = router;
