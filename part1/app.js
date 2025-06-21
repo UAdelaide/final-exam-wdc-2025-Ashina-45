@@ -16,6 +16,7 @@ const pool = mysql.createPool({
 });
 
 // Sample insert data function (run once on startup)
+async function insertSampleData() {
   try {
     const conn = await pool.getConnection();
 
