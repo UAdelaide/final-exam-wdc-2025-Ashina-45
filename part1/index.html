@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dog of the Day</title>
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    /* Intentionally overwhelming, poor color contrast, and crowded UI */
+    body {
+      background: repeating-linear-gradient(45deg, #ff0, #ff0 10px, #f00 10px, #f00 20px);
+      font-size: 1.1em;
+      color: #eee;
+    }
+    .container {
+      margin: 0 auto;
+      padding: 20px;
+      width: 95vw;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 50px;
+      justify-content: space-between;
+      border: 4px dotted #0ff;
+    }
+    .details {
+      width: 40vw;
+      font-weight: bold;
+      background: #00f;
+      color: #f0f;
+      border: 3px solid #0f0;
+      font-size: 2em;
+      text-shadow: 2px 2px #000, -1px -1px #ff0;
+      padding: 50px;
+      margin: 0 30px;
+      outline: 10px dashed #ff0;
+      overflow: scroll;
+      height: 600px;
+    }
+    .image {
+      filter: blur(3px) brightness(1.2) contrast(2) grayscale(70%);
+      border-radius: 50%;
+      width: 600px;
+      height: 600px;
+      object-fit: cover;
+      box-shadow: 0 0 40px 15px #0f0, 0 0 5px 2px #f00;
+      transition: none;
+    }
+
+    .super-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      height: 400px;
+      overflow-y: auto;
+      border-left: 8px solid #f0f;
+      padding: 30px 10px;
+      font-size: 2em;
+    }
+    .super-nav a {
+      color: #0ff;
+      text-decoration: underline wavy #f0f;
+      background: #000c;
+      padding: 16px 4px;
+      margin: 12px 0;
+      border-radius: 30px;
+      display: block;
+      width: 400px;
+      font-size: 1.4em;
+      letter-spacing: 0.1em;
+    }
+    .super-nav a:focus { outline: none; border: none; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="super-nav">
+      <!-- Overwhelming, excessive navigation for one page -->
+      <a href="#dog">Dog of the Day</a>
+      <a href="#details">Dog Details</a>
+      <a href="#walks">Book a Walk</a>
+      <a href="#walkhistory">Walk History</a>
+      <a href="#photos">Dog Photos</a>
+      <a href="#reviews">Walker Reviews</a>
+      <a href="#faq">FAQ</a>
+      <a href="#lostdogs">Lost Dogs</a>
+      <a href="#about">About Us</a>
+      <a href="#contact">Contact</a>
+      <a href="#more">More Links</a>
+      <a href="#evenmore">Even More Links</a>
+      <a href="#extrastuff">Extra Stuff</a>
+      <a href="#hidden">Hidden Page</a>
+    </div>
+    <div class="container">
+      <img
+        v-if="dogImg"
+        :src="dogImg"
+        class="image"
+        tabindex="4"
+        draggable="false"
+      >
+      <div class="details">
+        <h2>Dog of the Day: Sir Barksalot</h2>
+        <p>
+          Breed: Irish Setter <br>
+          Likes: Chasing rabbits, running for hours, eating socks <br>
+          Dislikes: Sitting still, the mailman, carrots <br>
+          Bio: This amazing dog of the day is energetic and probably a bad choice for small apartments. Click everywhere to see if anything happens!
+        </p>
+        <button style="background: #fff; color: #000; border: 8px solid #f00; font-size: 2.2em; padding: 35px 90px; cursor: pointer;"
+                tabindex="10"
+                onclick="alert('You need to enable JavaScript and use the mouse to continue!')"
+                >Adopt Me</button>
+      </div>
+    </div>
+    <audio autoplay loop>
+      <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+    </audio>
+  </div>
+  <script>
+    const { createApp } = Vue;
+    createApp({
+      data() {
+        return { dogImg: null }
+      },
+      mounted() {
+        fetch('https://dog.ceo/api/breeds/image/random')
+          .then(r => r.json())
+          .then(d => this.dogImg = d.message)
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>

@@ -1,83 +1,83 @@
 const express = require('express');
-const path = require('path');
-const cookieParser = require('cookie-parser');
-const logger = require('morgan');
 const mysql = require('mysql2/promise');
-const fs = require('fs').promises;
 
 const app = express();
+const PORT = 8080;
 
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+// Replace with your own DB credentials
+const pool = mysql.createPool({
+  host: 'localhost',
+  user: 'root',
+  password: '', // fill in as needed
+  database: 'DogWalkService',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
-let db;
-
-(async () => {
+// Sample insert data function (run once on startup)
+async function insertSampleData() {
   try {
-    // Read and execute the SQL file
-    const sqlScript = await fs.readFile(path.join(__dirname, 'dogwalks.sql'), 'utf8');
+    const conn = await pool.getConnection();
 
-    // Connect to MySQL without database first
-    const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: ''
-    });
+    // Insert users
+    await conn.query(`
+      INSERT IGNORE INTO Users (username, email, password_hash, role) VALUES
+        ('alice123', 'alice@example.com', 'hashed123', 'owner'),
+        ('bobwalker', 'bob@example.com', 'hashed456', 'walker'),
+        ('carol123', 'carol@example.com', 'hashed789', 'owner'),
+        ('davidwalks', 'david@example.com', 'hashed101', 'walker'),
+        ('emma_pet', 'emma@example.com', 'hashed202', 'owner')
+    `);
 
-    // Split the SQL script into individual statements and execute them
-    const statements = sqlScript.split(';').filter(stmt => stmt.trim());
-    for (let statement of statements) {
-      if (statement.trim()) {
-        await connection.execute(statement + ';');
-      }
-    }
-    await connection.end();
+    // Insert dogs
+    await conn.query(`
+      INSERT IGNORE INTO Dogs (owner_id, name, size) VALUES
+        ((SELECT user_id FROM Users WHERE username='alice123'), 'Max', 'medium'),
+        ((SELECT user_id FROM Users WHERE username='carol123'), 'Bella', 'small'),
+        ((SELECT user_id FROM Users WHERE username='emma_pet'), 'Rocky', 'large'),
+        ((SELECT user_id FROM Users WHERE username='alice123'), 'Luna', 'small'),
+        ((SELECT user_id FROM Users WHERE username='carol123'), 'Charlie', 'medium')
+    `);
 
-    // Connect to the created database
-    db = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: '',
-      database: 'DogWalkService'
-    });
+    // Insert walk requests
+    await conn.query(`
+      INSERT IGNORE INTO WalkRequests (dog_id, requested_time, duration_minutes, location, status) VALUES
+        ((SELECT dog_id FROM Dogs WHERE name='Max'), '2025-06-10 08:00:00', 30, 'Parklands', 'open'),
+        ((SELECT dog_id FROM Dogs WHERE name='Bella'), '2025-06-10 09:30:00', 45, 'Beachside Ave', 'accepted'),
+        ((SELECT dog_id FROM Dogs WHERE name='Rocky'), '2025-06-11 14:00:00', 60, 'Central Park', 'open'),
+        ((SELECT dog_id FROM Dogs WHERE name='Luna'), '2025-06-12 16:30:00', 40, 'River Walk', 'accepted'),
+        ((SELECT dog_id FROM Dogs WHERE name='Charlie'), '2025-06-13 10:00:00', 50, 'Mountain Trail', 'open')
+    `);
 
-    console.log('Database setup completed successfully');
-  } catch (err) {
-    console.error('Error setting up database:', err);
+    conn.release();
+  } catch (error) {
+    console.error('Error inserting sample data:', error);
   }
-})();
+}
 
-// Route 1: Get all dogs with their size and owner's username
+// Call insertSampleData on startup
+insertSampleData();
+
+// /api/dogs
 app.get('/api/dogs', async (req, res) => {
   try {
-    const [rows] = await db.execute(`
-      SELECT
-        d.name AS dog_name,
-        d.size,
-        u.username AS owner_username
+    const [rows] = await pool.query(`
+      SELECT d.name AS dog_name, d.size, u.username AS owner_username
       FROM Dogs d
       JOIN Users u ON d.owner_id = u.user_id
     `);
     res.json(rows);
   } catch (err) {
-    console.error('Error fetching dogs:', err);
-    res.status(500).json({ error: 'Failed to fetch dogs' });
+    res.status(500).json({ error: 'Failed to fetch dogs', details: err.message });
   }
 });
 
-// Route 2: Get all open walk requests
+// /api/walkrequests/open
 app.get('/api/walkrequests/open', async (req, res) => {
   try {
-    const [rows] = await db.execute(`
-      SELECT
-        wr.request_id,
-        d.name AS dog_name,
-        wr.requested_time,
-        wr.duration_minutes,
-        wr.location,
-        u.username AS owner_username
+    const [rows] = await pool.query(`
+      SELECT wr.request_id, d.name AS dog_name, wr.requested_time, wr.duration_minutes, wr.location, u.username AS owner_username
       FROM WalkRequests wr
       JOIN Dogs d ON wr.dog_id = d.dog_id
       JOIN Users u ON d.owner_id = u.user_id
@@ -85,32 +85,36 @@ app.get('/api/walkrequests/open', async (req, res) => {
     `);
     res.json(rows);
   } catch (err) {
-    console.error('Error fetching walk requests:', err);
-    res.status(500).json({ error: 'Failed to fetch walk requests' });
+    res.status(500).json({ error: 'Failed to fetch walk requests', details: err.message });
   }
 });
 
-// Route 3: Get walker summary with ratings and completed walks
+// /api/walkers/summary
 app.get('/api/walkers/summary', async (req, res) => {
   try {
-    const [rows] = await db.execute(`
+    const [rows] = await pool.query(`
       SELECT
         u.username AS walker_username,
-        COUNT(DISTINCT wr.rating_id) AS total_ratings,
-        AVG(wr.rating) AS average_rating,
-        COUNT(DISTINCT CASE WHEN w.status = 'completed' THEN w.request_id END) AS completed_walks
+        COUNT(r.rating_id) AS total_ratings,
+        ROUND(AVG(r.rating), 2) AS average_rating,
+        (
+          SELECT COUNT(*)
+          FROM WalkRequests wr
+          JOIN WalkApplications wa ON wa.request_id = wr.request_id
+          WHERE wa.walker_id = u.user_id AND wr.status = 'completed' AND wa.status = 'accepted'
+        ) AS completed_walks
       FROM Users u
-      LEFT JOIN WalkApplications wa ON u.user_id = wa.walker_id
-      LEFT JOIN WalkRequests w ON wa.request_id = w.request_id
-      LEFT JOIN WalkRatings wr ON u.user_id = wr.walker_id
+      LEFT JOIN WalkRatings r ON r.walker_id = u.user_id
       WHERE u.role = 'walker'
-      GROUP BY u.user_id, u.username
+      GROUP BY u.user_id
     `);
     res.json(rows);
   } catch (err) {
-    console.error('Error fetching walker summary:', err);
-    res.status(500).json({ error: 'Failed to fetch walker summary' });
+    res.status(500).json({ error: 'Failed to fetch walker summary', details: err.message });
   }
 });
 
-module.exports = app;
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
