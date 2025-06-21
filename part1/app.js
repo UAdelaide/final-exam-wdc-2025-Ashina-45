@@ -5,6 +5,7 @@ const app = express();
 const PORT = 8080;
 
 // Replace with your own DB credentials
+const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: '', // fill in as needed
